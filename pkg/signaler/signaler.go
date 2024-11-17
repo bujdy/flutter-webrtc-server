@@ -306,7 +306,28 @@ func (s *Signaler) HandleNewWebSocket(conn *websocket.WebSocketConn, request *ht
 		case Keepalive:
 			s.Send(conn, request)
 		default:
-			logger.Warnf("Unkown request %v", request)
+			{
+				var negotiation Negotiation
+				err := json.Unmarshal(body, &negotiation)
+				if err != nil {
+					logger.Errorf("Unmarshal "+string(request.Type)+" got error %v", err)
+					return
+				}
+				to := negotiation.To
+				peer, ok := s.peers[to]
+				if !ok {
+					msg := Request{
+						Type: "error",
+						Data: Error{
+							Request: string(request.Type),
+							Reason:  "Peer [" + to + "] not found ",
+						},
+					}
+					s.Send(conn, msg)
+					return
+				}
+				s.Send(peer.conn, request)
+			}
 		}
 	})
 
